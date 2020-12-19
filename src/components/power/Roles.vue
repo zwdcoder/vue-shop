@@ -46,7 +46,7 @@
           <template slot-scope="scope">
             <el-button size="mini" type="primary" icon="el-icon-edit" @click="showEditRoles(scope.row.id)">编辑</el-button>
             <el-button size="mini" type="danger" icon="el-icon-delete" @click="deleteRoleById(scope.row.id)">删除</el-button>
-            <el-button size="mini" type="warning" icon="el-icon-setting">分配权限</el-button>
+            <el-button size="mini" type="warning" icon="el-icon-setting" @click="showSetRightDialog(scope.row)">分配权限</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -84,6 +84,23 @@
       <span slot="footer" class="dialog-footer">
         <el-button @click="editFormDialog = false">取 消</el-button>
         <el-button type="primary" @click="editRoles">确 定</el-button>
+      </span>
+    </el-dialog>
+    <!-- 分配权限对话框 -->
+    <el-dialog title="分配权限" :visible.sync="SetRightDialog" @close="setRightClose">
+      <el-tree
+          :data="rightList"
+          :props="treeProps"
+          show-checkbox
+          node-key="id"
+          default-expand-all
+          :default-checked-keys="defKeys"
+          ref="treeRef"
+      ></el-tree>
+
+      <span slot="footer">
+          <el-button @click="SetRightDialog = false">取 消</el-button>
+          <el-button type="primary" @click="allotRights">确 定</el-button>
       </span>
     </el-dialog>
   </div>
@@ -140,6 +157,50 @@
               showClose: true
             })
           this.rolelist = res.data;
+        })
+      },
+      showSetRightDialog(role) {
+        this.roleId = role.id;
+        this.$axios.get("rights/tree").then(response => {
+          let res = response.data;
+          if (res.meta.status !== 200)
+            return this.$message({
+                message: "获取权限失败！",
+                type: "error",
+                showClose: true
+            });
+          this.rightList = res.data;
+          this.getLeafKeys(role, this.defKeys);
+        });
+        this.SetRightDialog = true;
+      },
+      // 通过递归的形式，获取角色下所有三级权限的id
+      getLeafKeys (node, arr) {
+        if (!node.children) return arr.push(node.id);
+        node.children.forEach(element => {
+            this.getLeafKeys(element, arr);
+        });
+      },
+      setRightClose() {
+        this.defKeys = [];
+      },
+      allotRights() {
+        // 点击为角色分配权限
+        const keys = [
+          ...this.$refs.treeRef.getCheckedKeys(),
+          ...this.$refs.treeRef.getHalfCheckedKeys()
+        ]
+        const idStr = keys.join(',')
+        this.$axios
+        .post(`roles/${this.roleId}/rights`, { rids: idStr })
+        .then(response => {
+          let res = response.data
+          if(res.meta.status !== 200) {
+            return this.$message.error('分配权限失败！')
+          }
+          this.$message.success('分配权限成功！')
+          this.getRolesList()
+          this.SetRightDialog = false
         })
       },
       addUser() {

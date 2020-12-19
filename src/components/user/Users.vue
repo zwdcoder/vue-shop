@@ -40,7 +40,7 @@
             <el-button size="mini" type="danger" icon="el-icon-delete" @click="removeUserByid(scope.row.id)"></el-button>
             <!--分配角色按钮-->
             <el-tooltip class="item" effect="dark" content="分配角色" placement="top" :enterable="false">
-              <el-button size="mini" type="warning" icon="el-icon-setting"></el-button>
+              <el-button size="mini" type="warning" icon="el-icon-setting" @click="setRole(scope.row)"></el-button>
             </el-tooltip>
           </template>
         </el-table-column>
@@ -111,6 +111,30 @@
       </span>
     </el-dialog>
 
+    <!-- 分配角色对话框 -->
+    <el-dialog title="分配角色" :visible.sync="setRoleDialog"
+    @close="setRolesDialogClosed" width="50%">
+      <div>
+        <p>当前的用户:{{userInfo.username}}</p>
+        <p>当前的角色:{{userInfo.role_name}}</p>
+        <p>
+          分配新角色：
+          <el-select v-model="selectedRoleId" placeholder="请选择角色">
+            <el-option
+              v-for="item in roleList"
+              :key="item.id"
+              :label="item.roleName"
+              :value="item.id"
+            ></el-option>
+          </el-select>
+        </p>
+      </div>
+      <span slot="footer">
+        <el-button @click=" setRoleDialog= false">取 消</el-button>
+        <el-button type="primary" @click="saveRolesInfo">确 定</el-button>
+      </span>
+    </el-dialog>
+
   </div>
 </template>
 
@@ -176,7 +200,11 @@ export default{
           { required: true, message: '请输入电话号码', trigger: 'blur' },
           { validator: checkMobile, trigger: 'blur'}
         ]
-      }
+      },
+      setRoleDialog: false,
+      userInfo: [],
+      roleList: [],
+      selectedRoleId: ""
     }
   },
   created() {
@@ -297,6 +325,51 @@ export default{
       		});
       	}
       });
+    },
+    setRole(userInfo) {
+      this.userInfo = userInfo
+      this.$axios.get("roles").then(response => {
+        let res = response.data;
+        if (res.meta.status !== 200)
+          return this.$message({
+              message: "获取角色列表失败！",
+              type: "error",
+              showClose: true
+          });
+        this.roleList = res.data;
+      });
+      this.setRoleDialog = true
+    },
+    // 点击按钮，分配角色
+    async saveRolesInfo (){
+      if (!this.selectedRoleId) {
+        return this.$message.error('请选择角色！')
+      }
+      this.$axios
+        .put(`users/${this.userInfo.id}/role`, {
+          rid: this.selectedRoleId
+        })
+        .then(response => {
+          let res = response.data;
+          if (res.meta.status !== 200)
+            return this.$message({
+              message: "分配角色失败!",
+              type: "error",
+              showClose: true
+            });
+          this.$message({
+            message: '更新角色成功！',
+            type: 'success',
+            showClose: true,
+          });
+          this.getUserList();
+          this.setRoleDialog=false
+        });
+    },
+    // 分配角色对话框的关闭事件
+    setRolesDialogClosed() {
+      this.selectedRoleId=''
+      this.userInfo=[]
     }
   }
 }
